@@ -5,6 +5,7 @@ Simple script to take snapshot and restore btrfs subvolumes
 
 - A btrfs filesystem
 - btrfs tool, Run `which btrfs` to check
+- anacron, Run `which anacron` to check
 - bash shell
 - Root/sudo permission
 
@@ -14,6 +15,7 @@ Simple script to take snapshot and restore btrfs subvolumes
 
 ```
 cp btrsnap.sh btrsnap_data_daily.sh
+chmod +x btrsnap_data_daily.sh
 ```
 
 - Update configurations
