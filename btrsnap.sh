@@ -39,7 +39,7 @@ for BTRFS_SUBVOL in $(echo ${BTRFS_SUBVOLS} | sed "s/,/ /g"); do
         mkdir "/${BTRFS_FS_MOUNTPATH}/${BTRFS_TARGET}/${BTRFS_SUBVOL}"
     fi
 
-    btrfs subvolume snapshot "/${BTRFS_FS_MOUNTPATH}/${BTRFS_SUBVOL}" "/${BTRFS_FS_MOUNTPATH}/${BTRFS_TARGET}/${BTRFS_SUBVOL}/${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-$(date +%Y%m%d%H%M%S)"
+    btrfs subvolume snapshot -r "/${BTRFS_FS_MOUNTPATH}/${BTRFS_SUBVOL}" "/${BTRFS_FS_MOUNTPATH}/${BTRFS_TARGET}/${BTRFS_SUBVOL}/${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-$(date +%Y%m%d%H%M%S)"
     exitCode=$?
 
     if [ $exitCode -ne 0 ]; then
