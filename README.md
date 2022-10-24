@@ -11,10 +11,17 @@ Simple script to take snapshot and restore btrfs subvolumes
 
 ## How to use it
 
-- Rename this file to your wish
+- Rename this file to your wish or downlload this file
 
 ```
 cp btrsnap.sh btrsnap_data_daily.sh
+chmod +x btrsnap_data_daily.sh
+```
+
+Or,
+
+```
+curl -L https://raw.githubusercontent.com/navilg/btrfs-data-snapshotter/main/btrsnap.sh -o btrsnap_data_daily.sh
 chmod +x btrsnap_data_daily.sh
 ```
 
