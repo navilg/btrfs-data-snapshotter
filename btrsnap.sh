@@ -9,7 +9,11 @@ BTRFS_SNAPSHOT_IDENTIFIER=daily         # Unique label/identifier for snapshots.
 BTRFS_FS_MOUNTPATH=/media/navi/Data     # Absolute mount path of BTRFS filesystem
 BTRFS_SUBVOLS=Documents,Storage         # Comma separated subvolumes
 BTRFS_TARGET=.btrfs-snapshots           # Path under filesystem mountpath where snapshots will be stored, must be created manually.
-BTRFS_RETAIN_SNAP_NUMBER=5              # Number of snapsshots to retain
+BTRFS_RETAIN_SNAP_NUMBER=5              # Number of snapsshots to retain.
+BTRFS_SNAP_TTL_DAYS=7                   # Number of days for a backup to be retained. This will be considered only when BTRFS_RETAIN_SNAP_NUMBER is fulfilled.
+
+# If BTRFS_RETAIN_SNAP_NUMBER=5 and BTRFS_SNAP_TTL=7d. You have 3 snapshots out of which 2 are more than 8 days old.
+# In this case, All 3 snapshots will be retained because number of snapshots is not atleast bare minimum required i.e. 5.
 
 ### END OF CONFIGURATIONS ###
 
@@ -23,6 +27,16 @@ fi
 # Generate 6 digit unique id
 
 unique_id=$(cat /dev/urandom | head -10 | tr -dc [:digit:] | cut -c1-6)
+
+# Duration function
+
+duration() {
+    creation_time_unix=$(date -d "$1" +%s)
+    current_time_unix=$(date +%s)
+
+    local duration_in_days=$(expr $(expr $current_time_unix - $creation_time_unix) / 86400)
+    echo ${duration_in_days}
+}
 
 # Create snapshot #
 
@@ -55,20 +69,25 @@ echo
 
 echo "Delete expired snapshot..."
 echo
-
+count=0
 for BTRFS_SUBVOL in $(echo ${BTRFS_SUBVOLS} | sed "s/,/ /g"); do
 
     if [ -z "${BTRFS_SUBVOL}" ]; then
         continue
     fi
 
-    btrfs subvolume list /media/navi/Data/ | grep -wE ${BTRFS_SUBVOL}/${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-[0-9]{14} | tr -s " " | rev | cut -d " " -f 1 | rev | sort -n | tail -n +$(expr ${BTRFS_RETAIN_SNAP_NUMBER} + 1) | tee "/tmp/expired_btrfs-${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-${unique_id}"
-
+    btrfs subvolume list "/${BTRFS_FS_MOUNTPATH}/" | grep -wE ${BTRFS_SUBVOL}/${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-[0-9]{14} | tr -s " " | rev | cut -d " " -f 1 | rev | sort -nr | tail -n +$(expr ${BTRFS_RETAIN_SNAP_NUMBER} + 1) > "/tmp/expired_btrfs-${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-${unique_id}"
     while read -r line; do
-        btrfs subvolume delete "/${BTRFS_FS_MOUNTPATH}/${line}"
-        exitCode=$?
-        if [ $exitCode -ne 0 ]; then
-            echo "Failed to delete snapshot - "/${BTRFS_FS_MOUNTPATH}/${line}""
+        creation_time=$(sudo btrfs subvolume show -h "/${BTRFS_FS_MOUNTPATH}/${line}" | grep "Creation time" | cut -d ":" -f 2- | tr -d "\t" | sed 's/^[[:space:]]*//')
+        duration_in_days=$(duration "${creation_time}")
+        if [ ${duration_in_days} -gt ${BTRFS_SNAP_TTL_DAYS} ]; then
+            btrfs subvolume delete "/${BTRFS_FS_MOUNTPATH}/${line}"
+            exitCode=$?
+            if [ $exitCode -ne 0 ]; then
+                echo "Failed to delete snapshot - "/${BTRFS_FS_MOUNTPATH}/${line}""
+            else
+                count=$(expr ${count} + 1)
+            fi
         fi
     done < "/tmp/expired_btrfs-${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-${unique_id}"
 
@@ -76,11 +95,7 @@ for BTRFS_SUBVOL in $(echo ${BTRFS_SUBVOLS} | sed "s/,/ /g"); do
 done
 
 echo
-echo "Expired snapshots deleted."
-echo
-echo "Available snapshots:"
-echo "--------------------"
-btrfs subvolume list /media/navi/Data/ | grep -wE ${BTRFS_SUBVOL}/${BTRFS_SUBVOL}-${BTRFS_SNAPSHOT_IDENTIFIER}-[0-9]{14} | tr -s " " | rev | cut -d " " -f 1 | rev | sort -n -r
+echo "${count} expired snapshots deleted."
 echo
 echo "DONE"
 echo
